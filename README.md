@@ -2,13 +2,17 @@
 
 This repository tracks development and progress for the QAV250 drone project.
 
-Contents
+Repository structure
+
+- README.md — project overview and file structure (this file)
 - PROGRESS.md — date-stamped progress notes and milestone checklist
-- README.md — project overview and getting started
+- .gitignore — files and folders to ignore
+- test/ — tests and experiment scripts (user added)
 
 Getting started
 1. Review PROGRESS.md to see current status and next steps.
-2. Commit progress updates or open issues to track work.
+2. Inspect the test/ folder for example tests or experimental code added so far.
+3. Commit progress updates or open issues to track work.
 
 How to push to GitHub
 - Create a remote repo on GitHub and add it as a remote:
@@ -17,3 +21,4 @@ How to push to GitHub
 
 Notes
 - Use PROGRESS.md for quick daily notes; create issues for specific tasks.
+- Keep test/ focused: use subfolders for unit, integration, and hardware tests.
