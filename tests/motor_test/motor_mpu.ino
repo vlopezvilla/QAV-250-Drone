@@ -1,17 +1,21 @@
+// motor_mpu.ino
+// Motor + MPU6050 test for ESP32
+// - Reads MPU6050 (I2C), uses a complementary filter and PID to compute a small throttle
+// - Arms ESC at MIN_THROTTLE on startup. PROPS OFF while testing.
+// - Type any character + Enter in Serial Monitor to cut throttle immediately (kill switch).
 
+#include <Arduino.h>
 #include <Wire.h>
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
 #include <ESP32Servo.h>
 
 // PROPS OFF. Motor secured/clamped. Separate battery for ESC. Common ground required.
-// Type any character + Enter at ANY time to immediately cut throttle (kill switch).
-
-// I2C pins for MPU6050 — SDA->D21, SCL->D22
+// I2C pins for MPU6050 — SDA->D21, SCL->D22 (ESP32 default)
 #define SDA_PIN 21
 #define SCL_PIN 22
 
-// ESC signal pin
+// ESC signal pin (PWM)
 #define ESC_PIN 5
 
 Adafruit_MPU6050 mpu;
@@ -29,13 +33,13 @@ struct PID {
   float prevError = 0;
 };
 PID pitchPID = {2.0, 0.0, 0.5};
-const float TARGET_PITCH = 0.0;  // level
+const float TARGET_PITCH = 0.0;  // desired pitch (degrees)
 
-// ---- Throttle limits ----
+// ---- Throttle limits (microseconds for typical ESC) ----
 const int MIN_THROTTLE   = 1000;
 const int MAX_THROTTLE   = 2000;
-const int BASE_THROTTLE  = 1150;  // modest spin so correction is visible in both directions
-const int THROTTLE_CAP   = 1350;  // safety ceiling — halfway
+const int BASE_THROTTLE  = 1150;  // modest spin so correction is visible
+const int THROTTLE_CAP   = 1350;  // safety ceiling — keep low during bench tests
 
 bool killed = false;
 
@@ -59,7 +63,8 @@ void checkKillSwitch() {
 
 void setup() {
   Serial.begin(115200);
-  while (!Serial) delay(10);
+  // brief pause to let serial monitor attach
+  delay(50);
 
   Wire.begin(SDA_PIN, SCL_PIN);
   if (!mpu.begin()) {
@@ -74,7 +79,7 @@ void setup() {
   esc.attach(ESC_PIN, MIN_THROTTLE, MAX_THROTTLE);
   Serial.println("Arming ESC. PROPS OFF. Keep clear of the motor.");
   esc.writeMicroseconds(MIN_THROTTLE);
-  delay(3000);  // give the ESC time to arm (listen for its beep sequence)
+  delay(3000);  // give the ESC time to arm
 
   Serial.println("Armed. Type any character + Enter at any time to cut throttle immediately.");
   Serial.println("Tilt the board to see motor throttle respond.");

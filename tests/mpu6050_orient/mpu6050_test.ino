@@ -1,15 +1,22 @@
+// mpu6050_test.ino
+// MPU6050 orientation test for ESP32 — prints pitch, roll, accelerometer and gyro
+
+#include <Arduino.h>
 #include <Wire.h>
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
 
-// I2C pins — matches SDA->D21, SCL->D22 (ESP32 default I2C pins)
+// I2C pins — SDA->D21, SCL->D22 (ESP32 default I2C pins)
+#define SDA_PIN 21
+#define SCL_PIN 22
 
 Adafruit_MPU6050 mpu;
 
 void setup() {
   // ensure that the serial monitor baud rate matches the one entered here
   Serial.begin(115200);
-  while (!Serial) delay(10);
+  // brief pause to allow serial monitor to attach
+  delay(50);
 
   Wire.begin(SDA_PIN, SCL_PIN);
 

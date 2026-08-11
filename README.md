@@ -7,7 +7,10 @@ Repository structure
 - README.md — project overview and file structure (this file)
 - PROGRESS.md — date-stamped progress notes and milestone checklist
 - .gitignore — files and folders to ignore
-- test/ — tests and experiment scripts (user added)
+- tests/ — tests and experiment code
+  - tests/led_blink/led_blink.ino — simple LED blink sanity test for ESP32
+  - tests/motor_test/motor_mpu.ino — motor + MPU6050 bench test (ESC safety, complementary filter, PID)
+  - tests/mpu6050_orient/mpu6050_test.ino — MPU6050 orientation readout (pitch/roll + raw sensors)
 
 Getting started
 1. Review PROGRESS.md to see current status and next steps.
