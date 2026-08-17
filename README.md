@@ -60,6 +60,8 @@ wiring everything and testing at the end.
 `viewer/drone_viewer.html` renders a 3D drone in the browser that mirrors the
 MPU6050's live orientation, reading the serial port through the Web Serial API.
 
+![The orientation viewer showing a 3D quadcopter tilted to match live MPU6050 readings, with roll, pitch and yaw values below it](docs/images/drone-viewer.png)
+
 1. Flash `viewer/mpu6050_stream`
 2. Close the Arduino serial monitor — only one program can hold the port
 3. Open the page in **Chrome or Edge** and click **Connect ESP32**
