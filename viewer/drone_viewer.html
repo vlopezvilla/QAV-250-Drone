@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Drone orientation viewer</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: #0e1116;
+    color: #e6e8eb;
+    margin: 0;
+    padding: 2rem 1.5rem;
+    display: flex;
+    justify-content: center;
+    min-height: 100vh;
+  }
+  .app { width: 100%; max-width: 900px; }
+
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px; margin-bottom: 20px;
+  }
+  h1 { font-size: 19px; font-weight: 500; margin: 0; letter-spacing: -0.01em; }
+  .sub { font-size: 13px; color: #8b939e; margin: 4px 0 0; }
+
+  .status {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 13px; padding: 7px 14px; border-radius: 999px;
+    background: #171b22; border: 1px solid #252b34; color: #8b939e;
+  }
+  .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #5c6572; flex-shrink: 0;
+  }
+  .status.ok { color: #6ee7a8; border-color: #1d4433; background: #10241b; }
+  .status.ok .dot { background: #34d17f; box-shadow: 0 0 8px #34d17f; }
+  .status.err { color: #f79a9a; border-color: #4a2323; background: #241212; }
+  .status.err .dot { background: #ef5f5f; }
+
+  button {
+    font-family: inherit; font-size: 13.5px; font-weight: 500;
+    padding: 9px 18px; border-radius: 8px;
+    border: 1px solid #2c333d; background: #1a1f27; color: #e6e8eb;
+    cursor: pointer; transition: background 0.15s, border-color 0.15s;
+  }
+  button:hover:not(:disabled) { background: #232935; border-color: #3a424e; }
+  button:active:not(:disabled) { transform: scale(0.985); }
+  button:disabled { opacity: 0.45; cursor: default; }
+
+  #canvasWrap {
+    width: 100%; height: 460px;
+    background: radial-gradient(ellipse at 50% 35%, #1b2029 0%, #10141a 70%);
+    border: 1px solid #1f242c;
+    border-radius: 14px; overflow: hidden; position: relative;
+  }
+  .hint {
+    position: absolute; bottom: 12px; left: 14px;
+    font-size: 11.5px; color: #5c6572; letter-spacing: 0.02em;
+  }
+
+  .stats {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 12px; margin-top: 14px;
+  }
+  .stat {
+    background: #151920; border: 1px solid #1f242c;
+    border-radius: 10px; padding: 12px 16px;
+  }
+  .stat .k {
+    font-size: 11.5px; color: #7b8493; margin: 0 0 5px;
+    text-transform: uppercase; letter-spacing: 0.07em;
+  }
+  .stat .v {
+    font-size: 25px; font-weight: 500; margin: 0;
+    font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
+  }
+  .stat.roll .v  { color: #7fb2ff; }
+  .stat.pitch .v { color: #ffc46b; }
+  .stat.yaw .v   { color: #9d8bff; }
+
+  .sliders {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 18px; margin-top: 18px;
+  }
+  label {
+    font-size: 12px; color: #7b8493; display: block; margin-bottom: 8px;
+    text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  input[type=range] {
+    width: 100%; -webkit-appearance: none; appearance: none;
+    height: 4px; border-radius: 4px; background: #262d38; outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #e6e8eb; cursor: pointer; border: none;
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #e6e8eb; cursor: pointer; border: none;
+  }
+
+  .help {
+    margin-top: 26px; font-size: 13px; color: #7b8493; line-height: 1.75;
+    border-top: 1px solid #1f242c; padding-top: 18px;
+  }
+  .help b { color: #b6bdc7; font-weight: 500; }
+  .help code {
+    background: #171b22; padding: 2px 6px; border-radius: 4px;
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    font-size: 12px; color: #a9b3c0;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div>
+      <h1>Drone orientation viewer</h1>
+      <p class="sub">Live attitude from MPU6050 over serial</p>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <span class="status" id="statusBadge"><span class="dot"></span><span id="statusText">Not connected</span></span>
+      <button id="connectBtn">Connect ESP32</button>
+    </div>
+  </header>
+
+  <div id="canvasWrap">
+    <div class="hint">Red rotors and nose mark the front</div>
+  </div>
+
+  <div class="stats">
+    <div class="stat roll">
+      <p class="k">Roll</p>
+      <p class="v" id="rollVal">0&deg;</p>
+    </div>
+    <div class="stat pitch">
+      <p class="k">Pitch</p>
+      <p class="v" id="pitchVal">0&deg;</p>
+    </div>
+    <div class="stat yaw">
+      <p class="k">Yaw</p>
+      <p class="v" id="yawVal">0&deg;</p>
+    </div>
+  </div>
+
+  <div class="sliders">
+    <div><label>Roll</label><input type="range" id="roll" min="-90" max="90" value="0" step="1"></div>
+    <div><label>Pitch</label><input type="range" id="pitch" min="-90" max="90" value="0" step="1"></div>
+    <div><label>Yaw</label><input type="range" id="yaw" min="-180" max="180" value="0" step="1"></div>
+  </div>
+
+  <div class="help">
+    <b>To use with your ESP32:</b><br>
+    1. Flash <code>mpu6050_stream.cpp</code> &mdash; it streams <code>roll,pitch,yaw</code> at 115200 baud.<br>
+    2. Close the Arduino Serial Monitor &mdash; only one program can hold the port.<br>
+    3. Click <b>Connect ESP32</b> and pick your board's port.<br>
+    Needs Chrome or Edge for the Web Serial API. Drag the canvas to orbit the camera; the sliders work without hardware.
+  </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const wrap = document.getElementById('canvasWrap');
+let W = wrap.clientWidth || 900;
+const H = 460;
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x10141a, 14, 30);
+
+const camera = new THREE.PerspectiveCamera(42, W / H, 0.1, 200);
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setSize(W, H);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+wrap.appendChild(renderer.domElement);
+
+scene.add(new THREE.HemisphereLight(0x9fb4d4, 0x14181f, 0.85));
+
+const key = new THREE.DirectionalLight(0xffffff, 1.0);
+key.position.set(5, 9, 4);
+key.castShadow = true;
+key.shadow.mapSize.set(1024, 1024);
+key.shadow.camera.near = 1;
+key.shadow.camera.far = 30;
+key.shadow.camera.left = -7;
+key.shadow.camera.right = 7;
+key.shadow.camera.top = 7;
+key.shadow.camera.bottom = -7;
+scene.add(key);
+
+const rim = new THREE.DirectionalLight(0x6f8fd0, 0.5);
+rim.position.set(-6, 3, -5);
+scene.add(rim);
+
+const GROUND_Y = -2.2;
+
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(60, 60),
+  new THREE.ShadowMaterial({ opacity: 0.42 })
+);
+ground.rotation.x = -Math.PI / 2;
+ground.position.y = GROUND_Y;
+ground.receiveShadow = true;
+scene.add(ground);
+
+const grid = new THREE.GridHelper(40, 40, 0x3a4453, 0x232a34);
+grid.position.y = GROUND_Y + 0.01;
+grid.material.transparent = true;
+grid.material.opacity = 0.55;
+scene.add(grid);
+
+const bodyMat  = new THREE.MeshLambertMaterial({ color: 0x5f5e5a });
+const armMat   = new THREE.MeshLambertMaterial({ color: 0x888780 });
+const frontMat = new THREE.MeshLambertMaterial({ color: 0xe24b4a });
+const rearMat  = new THREE.MeshLambertMaterial({ color: 0x378add });
+
+const drone = new THREE.Group();
+
+function add(mesh, cast) {
+  mesh.castShadow = cast !== false;
+  drone.add(mesh);
+  return mesh;
+}
+
+add(new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.34, 1.1), bodyMat));
+
+const arms = [[1, 1], [-1, 1], [1, -1], [-1, -1]];
+
+arms.forEach(function (a) {
+  const arm = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.13, 0.16), armMat);
+  arm.rotation.y = (a[0] * a[1] > 0) ? Math.PI / 4 : -Math.PI / 4;
+  add(arm);
+});
+
+const props = [];
+
+arms.forEach(function (a, i) {
+  const x = a[0] * 1.35, z = a[1] * 1.35;
+  const isFront = a[1] < 0;
+  const mat = isFront ? frontMat : rearMat;
+
+  const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.3, 16), mat);
+  hub.position.set(x, 0.16, z);
+  add(hub);
+
+  const blade = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.04, 0.14), mat);
+  blade.position.set(x, 0.33, z);
+  add(blade);
+  props.push({ g: blade, dir: (i % 2 === 0) ? 1 : -1 });
+
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.78, 0.035, 8, 32), armMat);
+  ring.position.set(x, 0.33, z);
+  ring.rotation.x = Math.PI / 2;
+  add(ring);
+});
+
+const nose = new THREE.Mesh(new THREE.ConeGeometry(0.17, 0.44, 12), frontMat);
+nose.position.set(0, 0.05, -0.85);
+nose.rotation.x = -Math.PI / 2;
+add(nose);
+
+scene.add(drone);
+
+const rollS  = document.getElementById('roll');
+const pitchS = document.getElementById('pitch');
+const yawS   = document.getElementById('yaw');
+const rollVal  = document.getElementById('rollVal');
+const pitchVal = document.getElementById('pitchVal');
+const yawVal   = document.getElementById('yawVal');
+
+let target = { r: 0, p: 0, y: 0 };
+
+function setTarget(r, p, y) {
+  target.r = r; target.p = p; target.y = y;
+  rollVal.textContent  = Math.round(r) + '°';
+  pitchVal.textContent = Math.round(p) + '°';
+  yawVal.textContent   = Math.round(y) + '°';
+  rollS.value = r; pitchS.value = p; yawS.value = y;
+}
+
+[rollS, pitchS, yawS].forEach(function (s) {
+  s.addEventListener('input', function () {
+    setTarget(+rollS.value, +pitchS.value, +yawS.value);
+  });
+});
+
+let orbit = { theta: 0.62, phi: 1.06, radius: 8.4 };
+let dragging = false, lastX = 0, lastY = 0;
+
+const el = renderer.domElement;
+el.style.cursor = 'grab';
+el.addEventListener('pointerdown', function (e) {
+  dragging = true; lastX = e.clientX; lastY = e.clientY;
+  el.style.cursor = 'grabbing'; el.setPointerCapture(e.pointerId);
+});
+el.addEventListener('pointermove', function (e) {
+  if (!dragging) return;
+  orbit.theta -= (e.clientX - lastX) * 0.0075;
+  orbit.phi   -= (e.clientY - lastY) * 0.0075;
+  orbit.phi = Math.max(0.22, Math.min(1.48, orbit.phi));
+  lastX = e.clientX; lastY = e.clientY;
+});
+el.addEventListener('pointerup', function () { dragging = false; el.style.cursor = 'grab'; });
+el.addEventListener('wheel', function (e) {
+  e.preventDefault();
+  orbit.radius = Math.max(4.5, Math.min(16, orbit.radius + e.deltaY * 0.006));
+}, { passive: false });
+
+function updateCamera() {
+  camera.position.set(
+    orbit.radius * Math.sin(orbit.phi) * Math.sin(orbit.theta),
+    orbit.radius * Math.cos(orbit.phi),
+    orbit.radius * Math.sin(orbit.phi) * Math.cos(orbit.theta)
+  );
+  camera.lookAt(0, 0, 0);
+}
+
+const D = Math.PI / 180;
+
+function animate() {
+  requestAnimationFrame(animate);
+  props.forEach(function (p) { p.g.rotation.y += 0.62 * p.dir; });
+  drone.rotation.x += (target.p * D - drone.rotation.x) * 0.18;
+  drone.rotation.z += (-target.r * D - drone.rotation.z) * 0.18;
+  drone.rotation.y += (target.y * D - drone.rotation.y) * 0.18;
+  updateCamera();
+  renderer.render(scene, camera);
+}
+animate();
+
+window.addEventListener('resize', function () {
+  W = wrap.clientWidth || 900;
+  camera.aspect = W / H;
+  camera.updateProjectionMatrix();
+  renderer.setSize(W, H);
+});
+
+const badge = document.getElementById('statusBadge');
+const statusText = document.getElementById('statusText');
+const btn = document.getElementById('connectBtn');
+
+function setStatus(text, kind) {
+  statusText.textContent = text;
+  badge.className = 'status' + (kind ? ' ' + kind : '');
+}
+
+btn.addEventListener('click', async function () {
+  if (!('serial' in navigator)) {
+    setStatus('Web Serial needs Chrome or Edge', 'err');
+    return;
+  }
+  try {
+    const port = await navigator.serial.requestPort();
+    await port.open({ baudRate: 115200 });
+    setStatus('Connected — live data', 'ok');
+    btn.disabled = true;
+
+    const reader = port.readable.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+
+    while (true) {
+      const res = await reader.read();
+      if (res.done) break;
+      buf += decoder.decode(res.value);
+      let idx;
+      while ((idx = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, idx).trim();
+        buf = buf.slice(idx + 1);
+        if (!line || line.charAt(0) === '#') continue;
+        const p = line.split(',').map(Number);
+        if (p.length === 3 && p.every(function (n) { return !isNaN(n); })) {
+          setTarget(p[0], p[1], p[2]);
+        }
+      }
+    }
+    setStatus('Disconnected');
+    btn.disabled = false;
+  } catch (e) {
+    setStatus('Connection failed', 'err');
+  }
+});
+</script>
+</body>
+</html>

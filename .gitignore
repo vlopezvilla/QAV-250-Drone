@@ -14,3 +14,7 @@ logs/
 # Build
 build/
 dist/
+# Arduino
+*.hex
+*.elf
+.build/
